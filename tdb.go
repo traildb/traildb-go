@@ -1,4 +1,4 @@
-package main
+package traildb
 
 /*
 #cgo CFLAGS: -I/usr/local/include
