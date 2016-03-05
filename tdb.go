@@ -12,40 +12,42 @@ import (
 	"os"
 	"time"
 )
+
 import "unsafe"
 import "errors"
 
-import "log"
-
-type Tdb struct {
+type TrailDB struct {
 	db *C.tdb
 
-	numTrails    uint64
-	numFields    uint64
-	numEvents    uint64
-	minTimestamp uint64
-	maxTimestamp uint64
-	fieldNames   []string
+	numTrails     uint64
+	numFields     uint64
+	numEvents     uint64
+	minTimestamp  uint64
+	maxTimestamp  uint64
+	fieldNames    []string
+	fieldNameToId map[string]uint32
 }
 
-type Cursor struct {
-	cursor *C.tdb_cursor
+type Trail struct {
+	db     *C.tdb
+	trail  *C.tdb_cursor
+	length uint64
 }
 
-type Field uint32
-type Value uint32
-type RawItem uint32
+// type Field uint32
+// type Value uint32
+// type RawItem uint32
 
-type Item struct {
+type Event struct {
 	Timestamp time.Time
 	Fields    map[string]string
 }
 
-func ErrToString(err *C.tdb_error) string {
-	return C.GoString(C.tdb_error_str(*err))
+func errToString(err C.tdb_error) string {
+	return C.GoString(C.tdb_error_str(err))
 }
 
-func Exists(path string) (bool, error) {
+func exists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	if err == nil {
 		return true, nil
@@ -56,69 +58,42 @@ func Exists(path string) (bool, error) {
 	return true, err
 }
 
-func Open(s string) (*Tdb, error) {
-	ok, er := Exists(s)
+func Open(s string) (*TrailDB, error) {
+	ok, er := exists(s)
 	if er != nil {
 		return nil, er
 	}
 	if !ok {
-		return nil, errors.New("Path doesn't exist: " + s)
+		return nil, errors.New(s + ": Path doesn't exist")
 	}
 	db := C.tdb_init()
 	cs := C.CString(s)
 	defer C.free(unsafe.Pointer(cs))
 	err := C.tdb_open(db, cs)
 	if err != 0 {
-		return nil, errors.New("Failed to open traildb " + s)
+		return nil, errors.New(s + ": Failed to open traildb: " + errToString(err))
 	}
 	numFields := uint64(C.tdb_num_fields(db))
 	var fields []string
+	var fieldNameToId map[string]uint32
 	for i := 0; i <= int(numFields); i++ {
-		fields = append(fields, GetFieldName(db, Field(i)))
+		fieldName := C.GoString(C.tdb_get_field_name(db, C.tdb_field(i)))
+		fieldNameToId[fieldName] = uint32(i)
+		fields = append(fields, fieldName)
+
 	}
-	return &Tdb{
-		db:           db,
-		numTrails:    uint64(C.tdb_num_trails(db)),
-		numEvents:    uint64(C.tdb_num_events(db)),
-		numFields:    numFields,
-		minTimestamp: uint64(C.tdb_min_timestamp(db)),
-		maxTimestamp: uint64(C.tdb_max_timestamp(db)),
-		fieldNames:   fields,
+	return &TrailDB{
+		db:            db,
+		numTrails:     uint64(C.tdb_num_trails(db)),
+		numEvents:     uint64(C.tdb_num_events(db)),
+		numFields:     numFields,
+		minTimestamp:  uint64(C.tdb_min_timestamp(db)),
+		maxTimestamp:  uint64(C.tdb_max_timestamp(db)),
+		fieldNames:    fields,
+		fieldNameToId: fieldNameToId,
 	}, nil
 }
-
-func GetFieldName(db *C.tdb, field Field) string {
-	return C.GoString(C.tdb_get_field_name(db, C.tdb_field(field)))
-}
-
-func NewCursor(db *Tdb, trail_id uint64) (*Cursor, error) {
-	curs := C.tdb_cursor_new(db.db)
-	err := C.tdb_get_trail(curs, C.uint64_t(trail_id))
-	if err != 0 {
-		return nil, errors.New("Failed to open Cursor on trail " + string(trail_id))
-	}
-	return &Cursor{
-		cursor: curs,
-		// buf_size:        1,
-		// buf:             make([]RawItem, 1),
-		// interned_fields: make(map[Field]string),
-		// interned_values: make(map[RawItem]string),
-	}, nil
-}
-
-func B2S(bs []int8) string {
-	b := make([]byte, len(bs))
-	for i, v := range bs {
-		if v < 0 {
-			b[i] = byte(256 + int(v))
-		} else {
-			b[i] = byte(v)
-		}
-	}
-	return string(b)
-}
-
-func (db *Tdb) GetTrailID(cookie string) (uint64, error) {
+func (db *TrailDB) GetTrailID(cookie string) (uint64, error) {
 	var trail_id C.uint64_t
 	err := C.tdb_get_trail_id(db.db, (*C.uint8_t)(unsafe.Pointer(&cookie)), &trail_id)
 	if err != 0 {
@@ -127,9 +102,44 @@ func (db *Tdb) GetTrailID(cookie string) (uint64, error) {
 	return uint64(trail_id), nil
 }
 
-func (db *Tdb) Close() {
+func (db *TrailDB) GetTrail()
+
+func (db *TrailDB) Version() int {
+	return int(C.tdb_version(db.db))
+}
+
+func (db *TrailDB) Close() {
 	C.tdb_close(db.db)
 }
+
+func NewTrail(db *TrailDB, trail_id uint64) (*Trail, error) {
+	trail := C.tdb_cursor_new(db.db)
+	err := C.tdb_get_trail(trail, C.uint64_t(trail_id))
+	if err != 0 {
+		return nil, errors.New(errToString(err) + ": Failed to open Trail with id " + string(trail_id))
+	}
+	return &Trail{
+		db:     db.db,
+		trail:  trail,
+		length: uint64(C.tdb_get_trail_length(trail)),
+	}, nil
+}
+
+func (trail *Trail) Close() {
+	C.tdb_cursor_free(trail.trail)
+	return
+}
+
+// func (trail *Trail) NextEvent() *Event {
+// 	var event *C.tdb_event
+// 	event = C.tdb_cursor_next(trail.trail)
+
+// 	var vlength C.uint64_t
+// }
+
+// func newEvent(event *C.tdb_event) *Event {
+
+// }
 
 // func (db *Tdb) GetTrail(cookie string) (*Cursor, error) {
 // 	if cookiebin, er := hex.DecodeString(cookie); er == nil {
@@ -158,10 +168,10 @@ func (db *Tdb) Close() {
 // 	}
 // }
 
-func timeTrack(start time.Time, name string) {
-	elapsed := time.Since(start)
-	log.Printf("%s took %s", name, elapsed)
-}
+// func timeTrack(start time.Time, name string) {
+// 	elapsed := time.Since(start)
+// 	log.Printf("%s took %s", name, elapsed)
+// }
 
 // func (Db *Tdb) NumTrails() uint64 {
 // 	return uint64(C.tdb_num_trails(Db.Db))
@@ -349,4 +359,5 @@ func timeTrack(start time.Time, name string) {
 // 	} else {
 // 		return nil, er
 // 	}
+
 // }
