@@ -9,6 +9,7 @@ package main
 */
 import "C"
 import (
+	"fmt"
 	"os"
 	"time"
 )
@@ -29,19 +30,13 @@ type TrailDB struct {
 }
 
 type Trail struct {
-	db     *C.tdb
-	trail  *C.tdb_cursor
-	length uint64
+	db    *TrailDB
+	trail *C.tdb_cursor
 }
 
 // type Field uint32
 // type Value uint32
 // type RawItem uint32
-
-type Event struct {
-	Timestamp time.Time
-	Fields    map[string]string
-}
 
 func errToString(err C.tdb_error) string {
 	return C.GoString(C.tdb_error_str(err))
@@ -117,9 +112,8 @@ func NewTrail(db *TrailDB, trail_id uint64) (*Trail, error) {
 		return nil, errors.New(errToString(err) + ": Failed to open Trail with id " + string(trail_id))
 	}
 	return &Trail{
-		db:     db.db,
-		trail:  trail,
-		length: uint64(C.tdb_get_trail_length(trail)),
+		db:    db,
+		trail: trail,
 	}, nil
 }
 
@@ -128,11 +122,65 @@ func (trail *Trail) Close() {
 	return
 }
 
-// func (trail *Trail) NextEvent() *Event {
-// 	var event *C.tdb_event
-// 	event = C.tdb_cursor_next(trail.trail)
+type Event struct {
+	trail     *Trail
+	Timestamp time.Time
+	NumItems  int
+	event     *C.tdb_event
+	items     *C.tdb_item
+}
 
-// 	var vlength C.uint64_t
+// uuid      -> trail_id
+// trail_id  -> [event, ...]
+// event     := [timestamp, item, ...]
+// item      := (field, val)
+// field     -> field_name
+// val       -> value
+
+func (trail *Trail) NextEvent() *Event {
+	event := C.tdb_cursor_next(trail.trail)
+	var vlength C.uint64_t
+
+	fmt.Println(event.num_items)
+	s := unsafe.Pointer(uintptr(unsafe.Pointer(&event)) + C.sizeof_tdb_event)
+	for i := 0; i < int(event.num_items); i++ {
+		item := *(*C.tdb_item)(unsafe.Pointer(uintptr(s) + uintptr(i*C.sizeof_tdb_item)))
+		value := C.GoString(C.tdb_get_item_value(trail.db.db, item, &vlength))
+		fieldName := C.GoString(C.tdb_get_field_name(trail.db.db, C.tdb_item_field(item)))
+		fmt.Printf("item: %s, Field: %s, Value: %s\n", item, fieldName, value)
+
+		// fmt.Println(C.tdb_item_val(*item))
+		// var s [vlength]byte
+		// for j := 0; j < int(vlength); j++ {
+		// 	s[j] = value[j]
+		// }
+		// fmt.Println(string(s))
+	}
+	// e := unsafe.Pointer(uintptr(unsafe.Pointer(&x[0])) + i*unsafe.Sizeof(x[0]))
+	// // end
+	// e := unsafe.Pointer(uintptr(s) + uintptr(int(event.num_items)*C.sizeof_tdb_item))
+
+	// fmt.Println(s)
+	// fmt.Println(e)
+
+	return &Event{
+		trail:     trail,
+		Timestamp: time.Unix(int64(event.timestamp), 0),
+		event:     event,
+		NumItems:  int(event.num_items),
+	}
+}
+
+// func (evt *Event) NextItem() {
+// 	var value C.tdb_val
+// 	fmt.Println(item)
+// }
+
+// var vlength C.uint64_t
+
+// fields := make(map[string]string)
+// for i, fieldName := range trail.db.fieldNames {
+// 	C.tdb_get_item(event.items)
 // }
 
 // func newEvent(event *C.tdb_event) *Event {
