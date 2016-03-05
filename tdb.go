@@ -1,4 +1,4 @@
-package traildb
+package main
 
 /*
 #cgo CFLAGS: -I/usr/local/include
@@ -75,7 +75,7 @@ func Open(s string) (*TrailDB, error) {
 	}
 	numFields := uint64(C.tdb_num_fields(db))
 	var fields []string
-	var fieldNameToId map[string]uint32
+	fieldNameToId := make(map[string]uint32)
 	for i := 0; i <= int(numFields); i++ {
 		fieldName := C.GoString(C.tdb_get_field_name(db, C.tdb_field(i)))
 		fieldNameToId[fieldName] = uint32(i)
@@ -101,8 +101,6 @@ func (db *TrailDB) GetTrailID(cookie string) (uint64, error) {
 	}
 	return uint64(trail_id), nil
 }
-
-func (db *TrailDB) GetTrail()
 
 func (db *TrailDB) Version() int {
 	return int(C.tdb_version(db.db))
