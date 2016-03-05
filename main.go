@@ -10,16 +10,23 @@ func main() {
 	fmt.Println(tdb)
 	fmt.Println(tdb.Version())
 
-	trail, err := NewTrail(tdb, 0)
-	if err != nil {
-		panic(err.Error())
+	var total int
+	for i := 0; i < tdb.numTrails; i++ {
+		trail, err := NewTrail(tdb, i)
+		if err != nil {
+			panic(err.Error())
+		}
+		// fmt.Println(trail)
+		for {
+			evt := trail.NextEvent()
+			if evt == nil {
+				trail.Close()
+				break
+			}
+			total++
+			// evt.Print()
+		}
 	}
-	fmt.Println(trail)
-	evt := trail.NextEvent()
-	fmt.Println(evt)
-	// evt.NextItem()
-	// fmt.Println(item)
-
-	trail.Close()
+	fmt.Println(total)
 	tdb.Close()
 }

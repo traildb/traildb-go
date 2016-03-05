@@ -20,11 +20,11 @@ import "errors"
 type TrailDB struct {
 	db *C.tdb
 
-	numTrails     uint64
-	numFields     uint64
-	numEvents     uint64
-	minTimestamp  uint64
-	maxTimestamp  uint64
+	numTrails     int
+	numFields     int
+	numEvents     int
+	minTimestamp  int
+	maxTimestamp  int
 	fieldNames    []string
 	fieldNameToId map[string]uint32
 }
@@ -32,6 +32,13 @@ type TrailDB struct {
 type Trail struct {
 	db    *TrailDB
 	trail *C.tdb_cursor
+}
+
+type Event struct {
+	trail     *Trail
+	Timestamp time.Time
+	Fields    map[string]string
+	items     []*C.tdb_item
 }
 
 // type Field uint32
@@ -68,7 +75,7 @@ func Open(s string) (*TrailDB, error) {
 	if err != 0 {
 		return nil, errors.New(s + ": Failed to open traildb: " + errToString(err))
 	}
-	numFields := uint64(C.tdb_num_fields(db))
+	numFields := int(C.tdb_num_fields(db))
 	var fields []string
 	fieldNameToId := make(map[string]uint32)
 	for i := 0; i <= int(numFields); i++ {
@@ -79,11 +86,11 @@ func Open(s string) (*TrailDB, error) {
 	}
 	return &TrailDB{
 		db:            db,
-		numTrails:     uint64(C.tdb_num_trails(db)),
-		numEvents:     uint64(C.tdb_num_events(db)),
+		numTrails:     int(C.tdb_num_trails(db)),
+		numEvents:     int(C.tdb_num_events(db)),
 		numFields:     numFields,
-		minTimestamp:  uint64(C.tdb_min_timestamp(db)),
-		maxTimestamp:  uint64(C.tdb_max_timestamp(db)),
+		minTimestamp:  int(C.tdb_min_timestamp(db)),
+		maxTimestamp:  int(C.tdb_max_timestamp(db)),
 		fieldNames:    fields,
 		fieldNameToId: fieldNameToId,
 	}, nil
@@ -105,7 +112,7 @@ func (db *TrailDB) Close() {
 	C.tdb_close(db.db)
 }
 
-func NewTrail(db *TrailDB, trail_id uint64) (*Trail, error) {
+func NewTrail(db *TrailDB, trail_id int) (*Trail, error) {
 	trail := C.tdb_cursor_new(db.db)
 	err := C.tdb_get_trail(trail, C.uint64_t(trail_id))
 	if err != 0 {
@@ -122,54 +129,58 @@ func (trail *Trail) Close() {
 	return
 }
 
-type Event struct {
-	trail     *Trail
-	Timestamp time.Time
-	NumItems  int
-	event     *C.tdb_event
-	items     *C.tdb_item
-}
-
-// uuid      -> trail_id
-// trail_id  -> [event, ...]
-// event     := [timestamp, item, ...]
-// item      := (field, val)
-// field     -> field_name
-// val       -> value
-
 func (trail *Trail) NextEvent() *Event {
 	event := C.tdb_cursor_next(trail.trail)
-	var vlength C.uint64_t
-
-	fmt.Println(event.num_items)
-	s := unsafe.Pointer(uintptr(unsafe.Pointer(&event)) + C.sizeof_tdb_event)
-	for i := 0; i < int(event.num_items); i++ {
-		item := *(*C.tdb_item)(unsafe.Pointer(uintptr(s) + uintptr(i*C.sizeof_tdb_item)))
-		value := C.GoString(C.tdb_get_item_value(trail.db.db, item, &vlength))
-		fieldName := C.GoString(C.tdb_get_field_name(trail.db.db, C.tdb_item_field(item)))
-		fmt.Printf("item: %s, Field: %s, Value: %s\n", item, fieldName, value)
-
-		// fmt.Println(C.tdb_item_val(*item))
-		// var s [vlength]byte
-		// for j := 0; j < int(vlength); j++ {
-		// 	s[j] = value[j]
-		// }
-		// fmt.Println(string(s))
+	if event == nil {
+		return nil
 	}
-	// e := unsafe.Pointer(uintptr(unsafe.Pointer(&x[0])) + i*unsafe.Sizeof(x[0]))
-	// // end
-	// e := unsafe.Pointer(uintptr(s) + uintptr(int(event.num_items)*C.sizeof_tdb_item))
+	// var vlength C.uint64_t
 
-	// fmt.Println(s)
-	// fmt.Println(e)
+	fields := make(map[string]string)
+	items := make([]*C.tdb_item, int(event.num_items))
+
+	s := unsafe.Pointer(uintptr(unsafe.Pointer(event)) + C.sizeof_tdb_event)
+	for i := 0; i < int(event.num_items); i++ {
+		item := (*C.tdb_item)(unsafe.Pointer(uintptr(s) + uintptr(i*C.sizeof_tdb_item)))
+		items[i] = item
+		// _ = C.GoString(C.tdb_get_item_value(trail.db.db, item, &vlength))
+		// _ = C.GoString(C.tdb_get_field_name(trail.db.db, C.tdb_item_field(item)))
+		// fields[fieldName] = value
+	}
 
 	return &Event{
 		trail:     trail,
 		Timestamp: time.Unix(int64(event.timestamp), 0),
-		event:     event,
-		NumItems:  int(event.num_items),
+		Fields:    fields,
+		items:     items,
 	}
 }
+
+func (evt *Event) Print() {
+	fmt.Printf("%s: %s\n", evt.Timestamp, evt.Fields)
+}
+
+// func (Db *Tdb) GetItemValueI(item RawItem) string {
+// 	res, ok := Db.interned_values[item]
+// 	if ok {
+// 		return res
+// 	} else {
+// 		res = Db.GetItemValue(item)
+// 		Db.interned_values[item] = res
+// 		return res
+// 	}
+// }
+
+// func (Db *Tdb) GetFieldNameI(field Field) string {
+// 	res, ok := Db.interned_fields[field]
+// 	if ok {
+// 		return res
+// 	} else {
+// 		res = Db.GetFieldName(field)
+// 		Db.interned_fields[field] = res
+// 		return res
+// 	}
+// }
 
 // func (evt *Event) NextItem() {
 // 	var value C.tdb_val
@@ -334,6 +345,8 @@ func (trail *Trail) NextEvent() *Event {
 // 	return result
 // }
 
+// ---------------------------------
+
 // func (Db *Tdb) DecodeTrailStruct(trail_id uint64, t reflect.Type) interface{} {
 // 	var r int
 
@@ -391,6 +404,9 @@ func (trail *Trail) NextEvent() *Event {
 
 // 	return result.Interface()
 // }
+
+//-----------------
+
 // func (Db *Tdb) GetTrailStruct(cookie string, t interface{}) (interface{}, error) {
 // 	Db.BuildTrailIndex()
 
