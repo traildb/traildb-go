@@ -10,23 +10,38 @@ func main() {
 	fmt.Println(tdb)
 	fmt.Println(tdb.Version())
 
-	var total int
-	for i := 0; i < tdb.numTrails; i++ {
-		trail, err := NewTrail(tdb, i)
-		if err != nil {
-			panic(err.Error())
-		}
-		// fmt.Println(trail)
+	// var total int
+	// for i := 0; i < tdb.numTrails; i++ {
+	// 	trail, err := NewTrail(tdb, i)
+	// 	if err != nil {
+	// 		panic(err.Error())
+	// 	}
+	// 	// fmt.Println(trail)
+	// 	for {
+	// 		evt := trail.NextEvent()
+	// 		if evt == nil {
+	// 			trail.Close()
+	// 			break
+	// 		}
+	// 		total++
+	// 		// evt.Print()
+	// 	}
+	// }
+	// fmt.Println(total)
+	trails, err := tdb.FindTrails(map[string]string{"type": "cli"})
+	if err != nil {
+		panic(err.Error())
+	}
+	for _, trail := range trails {
 		for {
 			evt := trail.NextEvent()
 			if evt == nil {
 				trail.Close()
 				break
 			}
-			total++
-			// evt.Print()
+			fmt.Println(evt)
 		}
 	}
-	fmt.Println(total)
+	fmt.Println(len(trails))
 	tdb.Close()
 }

@@ -38,7 +38,7 @@ type Event struct {
 	trail     *Trail
 	Timestamp time.Time
 	Fields    map[string]string
-	items     []*C.tdb_item
+	items     []C.tdb_item
 }
 
 // type Field uint32
@@ -129,6 +129,62 @@ func (trail *Trail) Close() {
 	return
 }
 
+func (db *TrailDB) FindTrails(filters map[string]string) ([]*Trail, error) {
+	var items []C.tdb_item
+
+	for k, v := range filters {
+		cs := C.CString(v)
+		defer C.free(unsafe.Pointer(cs))
+
+		item := C.tdb_get_item(db.db, C.tdb_field(db.fieldNameToId[k]), cs, C.uint64_t(len(v)))
+		items = append(items, item)
+
+	}
+
+	var result []*Trail
+	for i := 0; i < db.numTrails; i++ {
+		trail, err := NewTrail(db, i)
+		if err != nil {
+			return nil, err
+		}
+		for {
+			evt := trail.NextEvent()
+			if evt == nil {
+				trail.Close()
+				break
+			}
+			if evt.contains(items) {
+				trail, err := NewTrail(db, i)
+				if err != nil {
+					return nil, err
+				}
+				result = append(result, trail)
+				trail.Close()
+				break
+			}
+		}
+	}
+	return result, nil
+}
+func (evt *Event) contains(filters []C.tdb_item) bool {
+	results := make([]bool, len(filters))
+	for _, item := range evt.items {
+		for i, filter := range filters {
+			if filter == item {
+				results[i] = true
+			}
+		}
+		a := true
+		for _, r := range results {
+			a = a && r
+		}
+		if a == true {
+			return true
+		}
+	}
+	return false
+}
+
 func (trail *Trail) NextEvent() *Event {
 	event := C.tdb_cursor_next(trail.trail)
 	if event == nil {
@@ -137,15 +193,33 @@ func (trail *Trail) NextEvent() *Event {
 	// var vlength C.uint64_t
 
 	fields := make(map[string]string)
-	items := make([]*C.tdb_item, int(event.num_items))
+	items := make([]C.tdb_item, int(event.num_items))
 
 	s := unsafe.Pointer(uintptr(unsafe.Pointer(event)) + C.sizeof_tdb_event)
 	for i := 0; i < int(event.num_items); i++ {
-		item := (*C.tdb_item)(unsafe.Pointer(uintptr(s) + uintptr(i*C.sizeof_tdb_item)))
+		item := *(*C.tdb_item)(unsafe.Pointer(uintptr(s) + uintptr(i*C.sizeof_tdb_item)))
+		// C.tdb_item_field(item)
+		// C.tdb_item_val(item)
 		items[i] = item
+		// &Item{
+		// 	it:   item,
+		// 	Name: trail.db.fieldNames[int(C.tdb_item_field(item))],
+		// 	// val: C.tdb_item_val(item),
+		// }
+		// fmt.Printf("item: %s, Field #: %s, Field N: %s, Val #: %s, Val N: %s\n",
+		// 	item,
+		// 	,
+		// 	C.GoString(C.tdb_get_item_value(trail.db.db, item, &vlength)),
+		// 	C.tdb_item_val(item),
+		// 	C.GoString(C.tdb_get_field_name(trail.db.db, C.tdb_item_field(item))),
+		// )
+
 		// _ = C.GoString(C.tdb_get_item_value(trail.db.db, item, &vlength))
 		// _ = C.GoString(C.tdb_get_field_name(trail.db.db, C.tdb_item_field(item)))
 		// fields[fieldName] = value
+
+		// _ =
+		// _ = 		// fields[fieldName] = value
 	}
 
 	return &Event{
