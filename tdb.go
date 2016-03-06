@@ -9,6 +9,8 @@ package main
 */
 import "C"
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"time"
@@ -75,6 +77,66 @@ func NewTrailDBConstructor(path string, ofields ...string) (*TrailDBConstructor,
 		path:    path,
 		ofields: ofields,
 	}, nil
+}
+
+func (cons *TrailDBConstructor) Add(key string, timestamp time.Time, values []string) error {
+	return nil
+}
+
+func (cons *TrailDBConstructor) Append(db *TrailDB) error {
+	if err := C.tdb_cons_append(cons.cons, db.db); err != 0 {
+		return errors.New(errToString(err))
+	}
+	return nil
+}
+
+func (cons *TrailDBConstructor) Finalize() error {
+	if err := C.tdb_cons_finalize(cons.cons); err != 0 {
+		return errors.New(errToString(err))
+	}
+	return nil
+
+}
+
+// tdb_opt_key
+const (
+	TDB_OPT_ONLY_DIFF_ITEMS          = 100
+	TDB_OPT_EVENT_FILTER             = 101
+	TDB_OPT_CURSOR_EVENT_BUFFER_SIZE = 102
+	TDB_OPT_CONS_OUTPUT_FORMAT       = 1001
+)
+
+func make_tdb_opt_value(cbytes []byte) (result *C.tdb_opt_value) {
+	buf := bytes.NewBuffer(cbytes[:])
+	var ptr uint64
+	if err := binary.Read(buf, binary.BigEndian, &ptr); err == nil {
+		uptr := uintptr(ptr)
+		return (*C.tdb_opt_value)(unsafe.Pointer(uptr))
+	}
+	return nil
+}
+
+func (cons *TrailDBConstructor) SetOpt(key int, value int) error {
+	var buf []byte
+
+	binary.BigEndian.PutUint64(buf, uint64(value))
+	opt_value := *make_tdb_opt_value(buf)
+
+	err := C.tdb_cons_set_opt(cons.cons, C.tdb_opt_key(key), opt_value)
+	if err != 0 {
+		return errors.New(errToString(err))
+	}
+	return nil
+}
+
+func (cons *TrailDBConstructor) GetOpt(key int, value int) (int, error) {
+	var opt_value *C.tdb_opt_value
+	err := C.tdb_cons_set_opt(cons.cons, C.tdb_opt_key(key), *opt_value)
+	if err != 0 {
+		return -1, errors.New(errToString(err))
+	}
+	buf := (*C.uint64_t)(unsafe.Pointer(opt_value))
+	return int(*buf), nil
 }
 
 func (cons *TrailDBConstructor) Close() {
