@@ -11,6 +11,7 @@ import "C"
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"time"
@@ -79,7 +80,36 @@ func NewTrailDBConstructor(path string, ofields ...string) (*TrailDBConstructor,
 	}, nil
 }
 
-func (cons *TrailDBConstructor) Add(key string, timestamp time.Time, values []string) error {
+func (cons *TrailDBConstructor) Add(cookie string, timestamp time.Time, values []string) error {
+	if len(cookie) != 32 {
+		return errors.New("Cookie in the wrong format, needs to be 32 chars: " + cookie)
+	}
+	cookiebin, err := hex.DecodeString(cookie)
+	if err != nil {
+		return err
+	}
+	var values_p *C.char
+	value_lengths := make([]C.uint64_t, len(cons.ofields))
+
+	ptrSize := unsafe.Sizeof(values_p)
+
+	// Allocate the char** list.
+	ptr := C.malloc(C.size_t(len(cons.ofields)) * C.size_t(ptrSize))
+	defer C.free(ptr)
+
+	// Assign each byte slice to its appropriate offset.
+	for i := 0; i < len(cons.ofields); i++ {
+		element := (**C.char)(unsafe.Pointer(uintptr(ptr) + uintptr(i)*ptrSize))
+		cofield := C.CString(values[i])
+		value_lengths[i] = C.uint64_t(len(values[i]))
+		defer C.free(unsafe.Pointer(cofield))
+		*element = cofield
+	}
+
+	err1 := C.tdb_cons_add(cons.cons, (*C.uint8_t)(unsafe.Pointer(&cookiebin)), C.uint64_t(timestamp.Unix()), ptr, (*C.uint64_t)(unsafe.Pointer(&value_lengths)))
+	if err1 != 0 {
+		return errors.New(errToString(err1))
+	}
 	return nil
 }
 
