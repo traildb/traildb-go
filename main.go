@@ -28,20 +28,26 @@ func main() {
 	// 	}
 	// }
 	// fmt.Println(total)
-	trails, err := tdb.FindTrails(map[string]string{"type": "cli"})
+	// trails, err := tdb.FindTrails(map[string]string{"type": "cli"})
+	// if err != nil {
+	// 	panic(err.Error())
+	// }
+	// for _, trail := range trails {
+	// 	for {
+	// 		evt := trail.NextEvent()
+	// 		if evt == nil {
+	// 			trail.Close()
+	// 			break
+	// 		}
+	// 		evt.ToMap()
+	// 	}
+	// }
+	// fmt.Println(len(trails))
+	tdb.Close()
+
+	cons, err := NewTrailDBConstructor("foobar.tdb", "first", "second")
 	if err != nil {
 		panic(err.Error())
 	}
-	for _, trail := range trails {
-		for {
-			evt := trail.NextEvent()
-			if evt == nil {
-				trail.Close()
-				break
-			}
-			evt.ToMap()
-		}
-	}
-	fmt.Println(len(trails))
-	tdb.Close()
+	cons.Close()
 }

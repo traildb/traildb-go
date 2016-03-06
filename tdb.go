@@ -29,6 +29,12 @@ type TrailDB struct {
 	fieldNameToId map[string]uint32
 }
 
+type TrailDBConstructor struct {
+	cons    *C.tdb_cons
+	path    string
+	ofields []string
+}
+
 type Trail struct {
 	db    *TrailDB
 	trail *C.tdb_cursor
@@ -41,9 +47,39 @@ type Event struct {
 	items     []C.tdb_item
 }
 
-// type Field uint32
-// type Value uint32
-// type RawItem uint32
+func NewTrailDBConstructor(path string, ofields ...string) (*TrailDBConstructor, error) {
+	cons := C.tdb_cons_init()
+	cpath := C.CString(path)
+	defer C.free(unsafe.Pointer(cpath))
+
+	var ofield_p *C.char
+	ptrSize := unsafe.Sizeof(ofield_p)
+
+	// Allocate the char** list.
+	ptr := C.malloc(C.size_t(len(ofields)) * C.size_t(ptrSize))
+	defer C.free(ptr)
+
+	// Assign each byte slice to its appropriate offset.
+	for i := 0; i < len(ofields); i++ {
+		element := (**C.char)(unsafe.Pointer(uintptr(ptr) + uintptr(i)*ptrSize))
+		cofield := C.CString(ofields[i])
+		defer C.free(unsafe.Pointer(cofield))
+		*element = cofield
+	}
+
+	if err := C.tdb_cons_open(cons, cpath, (**C.char)(ptr), C.uint64_t(len(ofields))); err != 0 {
+		return nil, errors.New(errToString(err))
+	}
+	return &TrailDBConstructor{
+		cons:    cons,
+		path:    path,
+		ofields: ofields,
+	}, nil
+}
+
+func (cons *TrailDBConstructor) Close() {
+	C.tdb_cons_close(cons.cons)
+}
 
 func errToString(err C.tdb_error) string {
 	return C.GoString(C.tdb_error_str(err))
@@ -126,7 +162,6 @@ func NewTrail(db *TrailDB, trail_id int) (*Trail, error) {
 
 func (trail *Trail) Close() {
 	C.tdb_cursor_free(trail.trail)
-	return
 }
 
 func (db *TrailDB) FindTrails(filters map[string]string) ([]*Trail, error) {
