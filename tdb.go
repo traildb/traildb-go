@@ -190,35 +190,12 @@ func (trail *Trail) NextEvent() *Event {
 	if event == nil {
 		return nil
 	}
-	// var vlength C.uint64_t
-
 	items := make([]C.tdb_item, int(event.num_items))
 
 	s := unsafe.Pointer(uintptr(unsafe.Pointer(event)) + C.sizeof_tdb_event)
 	for i := 0; i < int(event.num_items); i++ {
 		item := *(*C.tdb_item)(unsafe.Pointer(uintptr(s) + uintptr(i*C.sizeof_tdb_item)))
-		// C.tdb_item_field(item)
-		// C.tdb_item_val(item)
 		items[i] = item
-		// &Item{
-		// 	it:   item,
-		// 	Name: trail.db.fieldNames[int(C.tdb_item_field(item))],
-		// 	// val: C.tdb_item_val(item),
-		// }
-		// fmt.Printf("item: %s, Field #: %s, Field N: %s, Val #: %s, Val N: %s\n",
-		// 	item,
-		// 	,
-		// 	C.GoString(C.tdb_get_item_value(trail.db.db, item, &vlength)),
-		// 	C.tdb_item_val(item),
-		// 	C.GoString(C.tdb_get_field_name(trail.db.db, C.tdb_item_field(item))),
-		// )
-
-		// _ = C.GoString(C.tdb_get_item_value(trail.db.db, item, &vlength))
-		// _ = C.GoString(C.tdb_get_field_name(trail.db.db, C.tdb_item_field(item)))
-		// fields[fieldName] = value
-
-		// _ =
-		// _ = 		// fields[fieldName] = value
 	}
 
 	return &Event{
