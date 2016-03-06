@@ -7,8 +7,6 @@ package main
 #include <traildb.h>
 #include <stdlib.h>
 
-
-
 */
 import "C"
 import (
@@ -276,7 +274,6 @@ func (db *TrailDB) FindTrails(filters map[string]string) ([]*Trail, error) {
 
 		item := C.tdb_get_item(db.db, C.tdb_field(db.fieldNameToId[k]), cs, C.uint64_t(len(v)))
 		items = append(items, item)
-
 	}
 
 	var result []*Trail
