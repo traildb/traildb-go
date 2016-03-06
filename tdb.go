@@ -154,11 +154,11 @@ func (db *TrailDB) FindTrails(filters map[string]string) ([]*Trail, error) {
 				break
 			}
 			if evt.contains(items) {
-				trail, err := NewTrail(db, i)
+				returnTrail, err := NewTrail(db, i)
 				if err != nil {
 					return nil, err
 				}
-				result = append(result, trail)
+				result = append(result, returnTrail)
 				trail.Close()
 				break
 			}
@@ -192,7 +192,6 @@ func (trail *Trail) NextEvent() *Event {
 	}
 	// var vlength C.uint64_t
 
-	fields := make(map[string]string)
 	items := make([]C.tdb_item, int(event.num_items))
 
 	s := unsafe.Pointer(uintptr(unsafe.Pointer(event)) + C.sizeof_tdb_event)
@@ -225,13 +224,24 @@ func (trail *Trail) NextEvent() *Event {
 	return &Event{
 		trail:     trail,
 		Timestamp: time.Unix(int64(event.timestamp), 0),
-		Fields:    fields,
 		items:     items,
 	}
 }
 
 func (evt *Event) Print() {
-	fmt.Printf("%s: %s\n", evt.Timestamp, evt.Fields)
+	fmt.Printf("%s: %s", evt.Timestamp, evt.ToMap())
+}
+
+func (evt *Event) ToMap() map[string]string {
+	fields := make(map[string]string)
+	var vlength C.uint64_t
+
+	for _, item := range evt.items {
+		value := C.GoString(C.tdb_get_item_value(evt.trail.db.db, item, &vlength))
+		key := C.GoString(C.tdb_get_field_name(evt.trail.db.db, C.tdb_item_field(item)))
+		fields[key] = value
+	}
+	return fields
 }
 
 // func (Db *Tdb) GetItemValueI(item RawItem) string {

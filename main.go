@@ -39,7 +39,7 @@ func main() {
 				trail.Close()
 				break
 			}
-			fmt.Println(evt)
+			evt.ToMap()
 		}
 	}
 	fmt.Println(len(trails))
