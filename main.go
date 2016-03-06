@@ -55,7 +55,8 @@ func main() {
 	}
 
 	cons.Add(cookie, time.Now(), []string{"a"})
-	cons.Add(cookie, time.Now(), []string{"b", "c"})
+	cons.Add(cookie, time.Now(), []string{"d", "e"})
+	cons.Add(cookie, time.Now(), []string{"e", "j"})
 	cons.Finalize()
 
 	cons.Close()

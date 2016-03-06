@@ -217,11 +217,11 @@ func Open(s string) (*TrailDB, error) {
 	numFields := int(C.tdb_num_fields(db))
 	var fields []string
 	fieldNameToId := make(map[string]uint32)
-	for i := 0; i <= int(numFields); i++ {
+	// numFields contains timestamp too
+	for i := 0; i <= int(numFields)-1; i++ {
 		fieldName := C.GoString(C.tdb_get_field_name(db, C.tdb_field(i)))
 		fieldNameToId[fieldName] = uint32(i)
 		fields = append(fields, fieldName)
-
 	}
 	return &TrailDB{
 		db:            db,
@@ -352,7 +352,8 @@ func (evt *Event) ToMap() map[string]string {
 	var vlength C.uint64_t
 
 	for _, item := range evt.items {
-		value := C.GoString(C.tdb_get_item_value(evt.trail.db.db, item, &vlength))
+		itemValue := C.tdb_get_item_value(evt.trail.db.db, item, &vlength)
+		value := C.GoStringN(itemValue, C.int(vlength))
 		key := C.GoString(C.tdb_get_field_name(evt.trail.db.db, C.tdb_item_field(item)))
 		fields[key] = value
 	}
