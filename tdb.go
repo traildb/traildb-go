@@ -81,16 +81,20 @@ func NewTrailDBConstructor(path string, ofields ...string) (*TrailDBConstructor,
 	}, nil
 }
 
-func rawCookie(cookie string) *C.uint8_t {
+func rawCookie(cookie string) (*C.uint8_t, error) {
 	cookiebin, err := hex.DecodeString(cookie)
 	if err != nil {
-		panic("Wrong cookie")
+		return nil, err
 	}
-	return (*C.uint8_t)(unsafe.Pointer(&cookiebin[0]))
+	return (*C.uint8_t)(unsafe.Pointer(&cookiebin[0])), nil
 }
 func (cons *TrailDBConstructor) Add(cookie string, timestamp int64, values []string) error {
 	if len(cookie) != 32 {
 		return errors.New("Cookie in the wrong format, needs to be 32 chars: " + cookie)
+	}
+	cookiebin, err := rawCookie(cookie)
+	if err != nil {
+		return err
 	}
 	var values_p *C.char
 	value_lengths := make([]C.uint64_t, len(cons.ofields))
@@ -117,7 +121,7 @@ func (cons *TrailDBConstructor) Add(cookie string, timestamp int64, values []str
 		*element = cvalues
 	}
 	valueLengthsPtr := (*C.uint64_t)(unsafe.Pointer(&value_lengths[0]))
-	err1 := C.tdb_cons_add(cons.cons, rawCookie(cookie), C.uint64_t(timestamp), ptr, valueLengthsPtr)
+	err1 := C.tdb_cons_add(cons.cons, cookiebin, C.uint64_t(timestamp), ptr, valueLengthsPtr)
 	if err1 != 0 {
 		return errors.New(errToString(err1))
 	}
@@ -236,8 +240,12 @@ func Open(s string) (*TrailDB, error) {
 }
 func (db *TrailDB) GetTrailID(cookie string) (uint64, error) {
 	var trail_id C.uint64_t
-	err := C.tdb_get_trail_id(db.db, rawCookie(cookie), &trail_id)
-	if err != 0 {
+	cookiebin, err := rawCookie(cookie)
+	if err != nil {
+		return 0, err
+	}
+	err1 := C.tdb_get_trail_id(db.db, cookiebin, &trail_id)
+	if err1 != 0 {
 		return 0, errors.New("Error while fetching trail_id for cookie " + cookie)
 	}
 	return uint64(trail_id), nil
