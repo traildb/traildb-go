@@ -1,4 +1,4 @@
-package main
+package tdb
 
 /*
 #cgo CFLAGS: -I/usr/local/include

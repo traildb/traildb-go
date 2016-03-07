@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"time"
+
+	"github.com/SemanticSugar/gotraildb"
 )
 
 type Ev struct {
@@ -45,16 +47,16 @@ func timeTrack(start time.Time, name string) time.Time {
 }
 
 func main() {
-	tdb, err := Open("output.30day.29of30.tdb")
+	db, err := tdb.Open("output.30day.29of30.tdb")
 	if err != nil {
 		panic(err.Error())
 	}
-	fmt.Println(tdb)
-	fmt.Println(tdb.Version())
+	fmt.Println(db)
+	fmt.Println(db.Version())
 
 	// var total int
-	// for i := 0; i < tdb.numTrails; i++ {
-	// 	trail, err := NewTrail(tdb, i)
+	// for i := 0; i < db.numTrails; i++ {
+	// 	trail, err := NewTrail(db, i)
 	// 	if err != nil {
 	// 		panic(err.Error())
 	// 	}
@@ -71,7 +73,7 @@ func main() {
 	// }
 	// fmt.Println(total)
 	start := time.Now()
-	trails, err := tdb.FindTrails(map[string]string{"type": "imp"})
+	trails, err := db.FindTrails(map[string]string{"type": "imp"})
 	intermediate := timeTrack(start, "search")
 	if err != nil {
 		panic(err.Error())
@@ -90,30 +92,30 @@ func main() {
 	}
 	_ = timeTrack(intermediate, "print")
 	fmt.Println(len(trails))
-	tdb.Close()
+	db.Close()
 
-	// cookie := "12345678123456781234567812345678"
-	// cons, err := NewTrailDBConstructor("test.tdb", "field1", "field2")
+	cookie := "12345678123456781234567812345678"
+	cons, err := tdb.NewTrailDBConstructor("test.tdb", "field1", "field2")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	cons.Add(cookie, time.Now(), []string{"a"})
+	cons.Add(cookie, time.Now(), []string{"d", "e"})
+	cons.Add(cookie, time.Now(), []string{"e", "j"})
+	cons.Finalize()
+
+	cons.Close()
+
+	// db, err := tdb.Open("test.tdb")
 	// if err != nil {
 	// 	panic(err.Error())
 	// }
+	// fmt.Println(db)
+	// fmt.Println(db.Version())
 
-	// cons.Add(cookie, time.Now(), []string{"a"})
-	// cons.Add(cookie, time.Now(), []string{"d", "e"})
-	// cons.Add(cookie, time.Now(), []string{"e", "j"})
-	// cons.Finalize()
-
-	// cons.Close()
-
-	// tdb, err := Open("test.tdb")
-	// if err != nil {
-	// 	panic(err.Error())
-	// }
-	// fmt.Println(tdb)
-	// fmt.Println(tdb.Version())
-
-	// for i := 0; i < tdb.numTrails; i++ {
-	// 	trail, err := NewTrail(tdb, i)
+	// for i := 0; i < db.numTrails; i++ {
+	// 	trail, err := tdb.NewTrail(db, i)
 	// 	if err != nil {
 	// 		panic(err.Error())
 	// 	}
@@ -129,16 +131,5 @@ func main() {
 	// 		fmt.Println(evt.ToStruct(r))
 	// 	}
 	// }
-
-	// from traildb import TrailDB, TrailDBConstructor
-
-	// cookie = '12345678123456781234567812345678'
-	// cons = TrailDBConstructor('test.tdb', ['field1', 'field2'])
-	// cons.add(cookie, 123, ['a'])
-	// cons.add(cookie, 124, ['b', 'c'])
-	// tdb = cons.finalize()
-
-	// for cookie, trail in tdb.crumbs():
-	//        print cookie, trail
 
 }
