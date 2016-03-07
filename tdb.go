@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"time"
 )
 
 import "unsafe"
@@ -25,9 +24,9 @@ import "errors"
 type TrailDB struct {
 	db *C.tdb
 
-	numTrails     int
-	numFields     int
-	numEvents     int
+	NumTrails     int
+	NumFields     int
+	NumEvents     int
 	minTimestamp  int
 	maxTimestamp  int
 	fieldNames    []string
@@ -47,7 +46,7 @@ type Trail struct {
 
 type Event struct {
 	trail     *Trail
-	Timestamp time.Time
+	Timestamp int64
 	Fields    map[string]string
 	items     []C.tdb_item
 }
@@ -89,7 +88,7 @@ func rawCookie(cookie string) *C.uint8_t {
 	}
 	return (*C.uint8_t)(unsafe.Pointer(&cookiebin[0]))
 }
-func (cons *TrailDBConstructor) Add(cookie string, timestamp time.Time, values []string) error {
+func (cons *TrailDBConstructor) Add(cookie string, timestamp int64, values []string) error {
 	if len(cookie) != 32 {
 		return errors.New("Cookie in the wrong format, needs to be 32 chars: " + cookie)
 	}
@@ -118,7 +117,7 @@ func (cons *TrailDBConstructor) Add(cookie string, timestamp time.Time, values [
 		*element = cvalues
 	}
 	valueLengthsPtr := (*C.uint64_t)(unsafe.Pointer(&value_lengths[0]))
-	err1 := C.tdb_cons_add(cons.cons, rawCookie(cookie), C.uint64_t(timestamp.Unix()), ptr, valueLengthsPtr)
+	err1 := C.tdb_cons_add(cons.cons, rawCookie(cookie), C.uint64_t(timestamp), ptr, valueLengthsPtr)
 	if err1 != 0 {
 		return errors.New(errToString(err1))
 	}
@@ -226,9 +225,9 @@ func Open(s string) (*TrailDB, error) {
 	}
 	return &TrailDB{
 		db:            db,
-		numTrails:     int(C.tdb_num_trails(db)),
-		numEvents:     int(C.tdb_num_events(db)),
-		numFields:     numFields,
+		NumTrails:     int(C.tdb_num_trails(db)),
+		NumEvents:     int(C.tdb_num_events(db)),
+		NumFields:     numFields,
 		minTimestamp:  int(C.tdb_min_timestamp(db)),
 		maxTimestamp:  int(C.tdb_max_timestamp(db)),
 		fieldNames:    fields,
@@ -280,7 +279,7 @@ func (db *TrailDB) FindTrails(filters map[string]string) ([]*Trail, error) {
 	}
 
 	var result []*Trail
-	for i := 0; i < db.numTrails; i++ {
+	for i := 0; i < db.NumTrails; i++ {
 		trail, err := NewTrail(db, i)
 		if err != nil {
 			return nil, err
@@ -338,7 +337,7 @@ func (trail *Trail) NextEvent() *Event {
 
 	return &Event{
 		trail:     trail,
-		Timestamp: time.Unix(int64(event.timestamp), 0),
+		Timestamp: int64(event.timestamp),
 		items:     items,
 	}
 }
@@ -377,7 +376,7 @@ func (evt *Event) ToStruct(data interface{}) interface{} {
 	}
 
 	v := reflect.New(t)
-	v.Elem().Field(0).SetInt(evt.Timestamp.Unix())
+	v.Elem().Field(0).SetInt(evt.Timestamp)
 	for k := 1; k < len(tdb_field_ids); k++ {
 		var vlength C.uint64_t
 		itemValue := C.tdb_get_item_value(evt.trail.db.db, evt.items[tdb_field_ids[k]-1], &vlength)

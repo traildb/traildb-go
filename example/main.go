@@ -55,7 +55,7 @@ func main() {
 	fmt.Println(db.Version())
 
 	// var total int
-	// for i := 0; i < db.numTrails; i++ {
+	// for i := 0; i < db.NumTrails; i++ {
 	// 	trail, err := NewTrail(db, i)
 	// 	if err != nil {
 	// 		panic(err.Error())
@@ -100,9 +100,9 @@ func main() {
 		panic(err.Error())
 	}
 
-	cons.Add(cookie, time.Now(), []string{"a"})
-	cons.Add(cookie, time.Now(), []string{"d", "e"})
-	cons.Add(cookie, time.Now(), []string{"e", "j"})
+	cons.Add(cookie, time.Now().Unix(), []string{"a"})
+	cons.Add(cookie, time.Now().Unix(), []string{"d", "e"})
+	cons.Add(cookie, time.Now().Unix(), []string{"e", "j"})
 	cons.Finalize()
 
 	cons.Close()
@@ -114,7 +114,7 @@ func main() {
 	// fmt.Println(db)
 	// fmt.Println(db.Version())
 
-	// for i := 0; i < db.numTrails; i++ {
+	// for i := 0; i < db.NumTrails; i++ {
 	// 	trail, err := tdb.NewTrail(db, i)
 	// 	if err != nil {
 	// 		panic(err.Error())
