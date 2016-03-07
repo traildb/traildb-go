@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 )
 
@@ -81,13 +82,16 @@ func NewTrailDBConstructor(path string, ofields ...string) (*TrailDBConstructor,
 	}, nil
 }
 
+func rawCookie(cookie string) *C.uint8_t {
+	cookiebin, err := hex.DecodeString(cookie)
+	if err != nil {
+		panic("Wrong cookie")
+	}
+	return (*C.uint8_t)(unsafe.Pointer(&cookiebin[0]))
+}
 func (cons *TrailDBConstructor) Add(cookie string, timestamp time.Time, values []string) error {
 	if len(cookie) != 32 {
 		return errors.New("Cookie in the wrong format, needs to be 32 chars: " + cookie)
-	}
-	cookiebin, err := hex.DecodeString(cookie)
-	if err != nil {
-		return err
 	}
 	var values_p *C.char
 	value_lengths := make([]C.uint64_t, len(cons.ofields))
@@ -113,9 +117,8 @@ func (cons *TrailDBConstructor) Add(cookie string, timestamp time.Time, values [
 		value_lengths[i] = C.uint64_t(len(currentString))
 		*element = cvalues
 	}
-	rawCookiePtr := (*C.uint8_t)(unsafe.Pointer(&cookiebin[0]))
 	valueLengthsPtr := (*C.uint64_t)(unsafe.Pointer(&value_lengths[0]))
-	err1 := C.tdb_cons_add(cons.cons, rawCookiePtr, C.uint64_t(timestamp.Unix()), ptr, valueLengthsPtr)
+	err1 := C.tdb_cons_add(cons.cons, rawCookie(cookie), C.uint64_t(timestamp.Unix()), ptr, valueLengthsPtr)
 	if err1 != 0 {
 		return errors.New(errToString(err1))
 	}
@@ -234,7 +237,7 @@ func Open(s string) (*TrailDB, error) {
 }
 func (db *TrailDB) GetTrailID(cookie string) (uint64, error) {
 	var trail_id C.uint64_t
-	err := C.tdb_get_trail_id(db.db, (*C.uint8_t)(unsafe.Pointer(&cookie)), &trail_id)
+	err := C.tdb_get_trail_id(db.db, rawCookie(cookie), &trail_id)
 	if err != 0 {
 		return 0, errors.New("Error while fetching trail_id for cookie " + cookie)
 	}
@@ -357,79 +360,29 @@ func (evt *Event) ToMap() map[string]string {
 	return fields
 }
 
-// ---------------------------------
+func (evt *Event) ToStruct(data interface{}) interface{} {
+	t := reflect.TypeOf(data)
 
-// func (Db *Tdb) DecodeTrailStruct(trail_id uint64, t reflect.Type) interface{} {
-// 	var r int
+	struct_field_ids := make([]int, 0)
+	tdb_field_ids := make([]uint32, 0)
 
-// 	for {
-// 		r = int(C.tdb_decode_trail(Db.Db, C.uint64_t(trail_id), (*C.uint32_t)(&Db.buf[0]), C.uint32_t(Db.buf_size), 0))
-// 		if r == Db.buf_size {
-// 			Db.buf_size = Db.buf_size * 2
-// 			Db.buf = make([]RawItem, Db.buf_size)
-// 		} else {
-// 			break
-// 		}
-// 	}
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		field_name := field.Tag.Get("tdb")
+		if field_name != "" {
+			tdb_id := evt.trail.db.fieldNameToId[field_name]
+			struct_field_ids = append(struct_field_ids, i)
+			tdb_field_ids = append(tdb_field_ids, tdb_id)
+		}
+	}
 
-// 	num_fields := Db.NumFields()
-// 	event_size := num_fields + 1
-
-// 	num_events := r / event_size
-
-// 	result := reflect.MakeSlice(reflect.SliceOf(t), num_events, num_events)
-
-// 	struct_field_ids := make([]int, 0)
-// 	tdb_field_ids := make([]Field, 0)
-
-// 	for i := 0; i < t.NumField(); i++ {
-// 		field := t.Field(i)
-// 		field_name := field.Tag.Get("tdb")
-// 		if field_name != "" {
-// 			tdb_id := Db.GetField(field_name)
-// 			if tdb_id > 0 && tdb_id != 255 {
-// 				struct_field_ids = append(struct_field_ids, i)
-// 				tdb_field_ids = append(tdb_field_ids, tdb_id)
-// 			} else {
-// 				if field_name == "timestamp" {
-// 					struct_field_ids = append(struct_field_ids, i)
-// 					tdb_field_ids = append(tdb_field_ids, 0)
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	for i := 0; i < r/event_size; i++ {
-// 		b := i * event_size
-
-// 		v := result.Index(i)
-
-// 		for k := 0; k < len(tdb_field_ids); k++ {
-// 			if tdb_field_ids[k] == 0 {
-// 				v.Field(struct_field_ids[k]).SetInt(int64(Db.buf[b]))
-// 			} else {
-// 				value := Db.GetItemValueI(Db.buf[b+int(tdb_field_ids[k])])
-// 				v.Field(struct_field_ids[k]).SetString(value)
-// 			}
-// 		}
-// 	}
-
-// 	return result.Interface()
-// }
-
-// func (Db *Tdb) GetTrailStruct(cookie string, t interface{}) (interface{}, error) {
-// 	Db.BuildTrailIndex()
-
-// 	if cookiebin, er := hex.DecodeString(cookie); er == nil {
-// 		v := binary.BigEndian.Uint64(cookiebin)
-// 		if trail_id, ok := Db.trail_index[v]; ok {
-// 			return Db.DecodeTrailStruct(trail_id, reflect.TypeOf(t)), nil
-// 		} else {
-// 			return nil, errors.New("Cannot find cookie " + cookie)
-// 		}
-
-// 	} else {
-// 		return nil, er
-// 	}
-
-// }
+	v := reflect.New(t)
+	v.Elem().Field(0).SetInt(evt.Timestamp.Unix())
+	for k := 1; k < len(tdb_field_ids); k++ {
+		var vlength C.uint64_t
+		itemValue := C.tdb_get_item_value(evt.trail.db.db, evt.items[tdb_field_ids[k]-1], &vlength)
+		value := C.GoStringN(itemValue, C.int(vlength))
+		v.Elem().Field(struct_field_ids[k]).SetString(value)
+	}
+	return v
+}
