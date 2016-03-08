@@ -2,7 +2,7 @@ package tdb
 
 /*
 #cgo CFLAGS: -I/usr/local/include
-#cgo LDFLAGS: -L/usr/local/lib -ltraildb -lm -lJudy -ljson-c
+#cgo LDFLAGS: -L/usr/local/lib -ltraildb
 
 #include <traildb.h>
 #include <stdlib.h>

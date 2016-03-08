@@ -47,12 +47,12 @@ func timeTrack(start time.Time, name string) time.Time {
 }
 
 func main() {
-	db, err := tdb.Open("output.30day.29of30.tdb")
-	if err != nil {
-		panic(err.Error())
-	}
-	fmt.Println(db)
-	fmt.Println(db.Version())
+	// db, err := tdb.Open("output.30day.29of30.tdb")
+	// if err != nil {
+	// 	panic(err.Error())
+	// }
+	// fmt.Println(db)
+	// fmt.Println(db.Version())
 
 	// var total int
 	// for i := 0; i < db.NumTrails; i++ {
@@ -72,27 +72,27 @@ func main() {
 	// 	}
 	// }
 	// fmt.Println(total)
-	start := time.Now()
-	trails, err := db.FindTrails(map[string]string{"type": "imp"})
-	intermediate := timeTrack(start, "search")
-	if err != nil {
-		panic(err.Error())
-	}
-	for _, trail := range trails {
-		for {
-			evt := trail.NextEvent()
-			if evt == nil {
-				trail.Close()
-				break
-			}
-			r := RawEvent{}
-			evt.ToStruct(r)
-			// evt.ToMap()
-		}
-	}
-	_ = timeTrack(intermediate, "print")
-	fmt.Println(len(trails))
-	db.Close()
+	// start := time.Now()
+	// trails, err := db.FindTrails(map[string]string{"type": "imp"})
+	// intermediate := timeTrack(start, "search")
+	// if err != nil {
+	// 	panic(err.Error())
+	// }
+	// for _, trail := range trails {
+	// 	for {
+	// 		evt := trail.NextEvent()
+	// 		if evt == nil {
+	// 			trail.Close()
+	// 			break
+	// 		}
+	// 		r := RawEvent{}
+	// 		evt.ToStruct(r)
+	// 		// evt.ToMap()
+	// 	}
+	// }
+	// _ = timeTrack(intermediate, "print")
+	// fmt.Println(len(trails))
+	// db.Close()
 
 	cookie := "12345678123456781234567812345678"
 	cons, err := tdb.NewTrailDBConstructor("test.tdb", "field1", "field2")
