@@ -37,6 +37,9 @@ type TrailDBConstructor struct {
 	cons    *C.tdb_cons
 	path    string
 	ofields []string
+
+	valueLengths []C.uint64_t
+	valuePtr     unsafe.Pointer
 }
 
 type Trail struct {
@@ -75,9 +78,11 @@ func NewTrailDBConstructor(path string, ofields ...string) (*TrailDBConstructor,
 		return nil, errors.New(errToString(err))
 	}
 	return &TrailDBConstructor{
-		cons:    cons,
-		path:    path,
-		ofields: ofields,
+		cons:         cons,
+		path:         path,
+		ofields:      ofields,
+		valueLengths: make([]C.uint64_t, len(ofields)),
+		valuePtr:     C.malloc(C.size_t(len(ofields)) * C.size_t(ptrSize)),
 	}, nil
 }
 
@@ -97,19 +102,14 @@ func (cons *TrailDBConstructor) Add(cookie string, timestamp int64, values []str
 		return err
 	}
 	var values_p *C.char
-	value_lengths := make([]C.uint64_t, len(cons.ofields))
 
 	ptrSize := unsafe.Sizeof(values_p)
-
-	// Allocate the char** list.
-	ptr := C.malloc(C.size_t(len(cons.ofields)) * C.size_t(ptrSize))
-	defer C.free(ptr)
 
 	// Assign each byte slice to its appropriate offset.
 	var currentString string
 	passedLength := len(values)
 	for i := 0; i < len(cons.ofields); i++ {
-		element := (**C.char)(unsafe.Pointer(uintptr(ptr) + uintptr(i)*ptrSize))
+		element := (**C.char)(unsafe.Pointer(uintptr(cons.valuePtr) + uintptr(i)*ptrSize))
 		if i+1 <= passedLength {
 			currentString = values[i]
 		} else {
@@ -117,11 +117,11 @@ func (cons *TrailDBConstructor) Add(cookie string, timestamp int64, values []str
 		}
 		cvalues := C.CString(currentString)
 		defer C.free(unsafe.Pointer(cvalues))
-		value_lengths[i] = C.uint64_t(len(currentString))
+		cons.valueLengths[i] = C.uint64_t(len(currentString))
 		*element = cvalues
 	}
-	valueLengthsPtr := (*C.uint64_t)(unsafe.Pointer(&value_lengths[0]))
-	err1 := C.tdb_cons_add(cons.cons, cookiebin, C.uint64_t(timestamp), ptr, valueLengthsPtr)
+	valueLengthsPtr := (*C.uint64_t)(unsafe.Pointer(&cons.valueLengths[0]))
+	err1 := C.tdb_cons_add(cons.cons, cookiebin, C.uint64_t(timestamp), cons.valuePtr, valueLengthsPtr)
 	if err1 != 0 {
 		return errors.New(errToString(err1))
 	}
