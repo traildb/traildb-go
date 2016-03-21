@@ -20,6 +20,7 @@ type RawEvent struct {
 	AdEid           string `tdb:"ad_eid"`
 	AdvertisableEid string `tdb:"advertisable_eid"`
 	Type            string `tdb:"type"`
+	Cpm             string `tdb:"cpm"`
 	GeoCountryCode  string `tdb:"geo_country_code"`
 	GeoCity         string `tdb:"geo_city"`
 	GeoPostalCode   string `tdb:"geo_postal_code"`
@@ -47,30 +48,30 @@ func timeTrack(start time.Time, name string) time.Time {
 }
 
 func main() {
-	// db, err := tdb.Open("output.30day.29of30.tdb")
-	// if err != nil {
-	// 	panic(err.Error())
-	// }
-	// fmt.Println(db)
-	// fmt.Println(db.Version())
+	db, err := tdb.Open("shard.0000.0000000000.1458228970")
+	if err != nil {
+		panic(err.Error())
+	}
+	fmt.Println(db)
+	fmt.Println(db.Version())
 
-	// var total int
-	// for i := 0; i < db.NumTrails; i++ {
-	// 	trail, err := NewTrail(db, i)
-	// 	if err != nil {
-	// 		panic(err.Error())
-	// 	}
-	// 	// fmt.Println(trail)
-	// 	for {
-	// 		evt := trail.NextEvent()
-	// 		if evt == nil {
-	// 			trail.Close()
-	// 			break
-	// 		}
-	// 		total++
-	// 		// evt.Print()
-	// 	}
-	// }
+	var total int
+	for i := 0; i < db.NumTrails; i++ {
+		trail, err := tdb.NewTrail(db, i)
+		if err != nil {
+			panic(err.Error())
+		}
+		// fmt.Println(trail)
+		for {
+			evt := trail.NextEvent()
+			if evt == nil {
+				trail.Close()
+				break
+			}
+			total++
+			fmt.Println(evt.ToMap())
+		}
+	}
 	// fmt.Println(total)
 	// start := time.Now()
 	// trails, err := db.FindTrails(map[string]string{"type": "imp"})
@@ -94,18 +95,18 @@ func main() {
 	// fmt.Println(len(trails))
 	// db.Close()
 
-	cookie := "12345678123456781234567812345678"
-	cons, err := tdb.NewTrailDBConstructor("test.tdb", "field1", "field2")
-	if err != nil {
-		panic(err.Error())
-	}
+	// cookie := "12345678123456781234567812345678"
+	// cons, err := tdb.NewTrailDBConstructor("test.tdb", "field1", "field2")
+	// if err != nil {
+	// 	panic(err.Error())
+	// }
 
-	cons.Add(cookie, time.Now().Unix(), []string{"a"})
-	cons.Add(cookie, time.Now().Unix(), []string{"d", "e"})
-	cons.Add(cookie, time.Now().Unix(), []string{"e", "j"})
-	cons.Finalize()
+	// cons.Add(cookie, time.Now().Unix(), []string{"a"})
+	// cons.Add(cookie, time.Now().Unix(), []string{"d", "e"})
+	// cons.Add(cookie, time.Now().Unix(), []string{"e", "j"})
+	// cons.Finalize()
 
-	cons.Close()
+	// cons.Close()
 
 	// db, err := tdb.Open("test.tdb")
 	// if err != nil {
