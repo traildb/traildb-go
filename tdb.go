@@ -1,8 +1,7 @@
 package tdb
 
 /*
-#cgo CFLAGS: -I/usr/local/include
-#cgo LDFLAGS: -L/usr/local/lib -ltraildb
+#cgo pkg-config: traildb
 
 #include <traildb.h>
 #include <stdlib.h>
