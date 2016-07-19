@@ -250,6 +250,24 @@ func (db *TrailDB) GetTrailID(cookie string) (uint64, error) {
 	return uint64(trail_id), nil
 }
 
+func (db *TrailDB) GetUUID(trail_id uint64) string {
+	uuid := C.tdb_get_uuid(db.db, C.uint64_t(trail_id))
+    if uuid == nil {
+        return ""
+    } else {
+	    return hex.EncodeToString(C.GoBytes(unsafe.Pointer(uuid), 16))
+    }
+}
+
+func (db *TrailDB) GetField(field_name string) (uint64, error) {
+    field := C.tdb_field(0)
+	err := C.tdb_get_field(db.db, C.CString(field_name), &field)
+	if err != 0 {
+		return 0, errors.New(errToString(err))
+	}
+    return uint64(field), nil
+}
+
 func (db *TrailDB) Version() uint64 {
 	return uint64(C.tdb_version(db.db))
 }
@@ -372,6 +390,13 @@ func (trail *Trail) NextEvent() *Event {
 
 func (evt *Event) Print() {
 	fmt.Printf("%s: %s\n", evt.Timestamp, evt.ToMap())
+}
+
+func (evt *Event) Get(index int) string {
+	var vlength C.uint64_t
+	itemValue := C.tdb_get_item_value(evt.trail.db.db, evt.items[index], &vlength)
+	value := C.GoStringN(itemValue, C.int(vlength))
+    return value
 }
 
 func (evt *Event) ToMap() map[string]string {
