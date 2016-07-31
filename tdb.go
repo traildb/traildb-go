@@ -42,8 +42,9 @@ type TrailDBConstructor struct {
 }
 
 type Trail struct {
-	db    *TrailDB
-	trail *C.tdb_cursor
+	db     *TrailDB
+	trail  *C.tdb_cursor
+	filter *C.struct_tdb_event_filter
 }
 
 type Event struct {
@@ -51,6 +52,16 @@ type Event struct {
 	Timestamp uint64
 	Fields    map[string]string
 	items     []C.tdb_item
+}
+
+type FilterTerm struct {
+	IsNegative bool
+	Value      string
+	Field      string
+}
+
+type EventFilter struct {
+	filter *C.struct_tdb_event_filter
 }
 
 func NewTrailDBConstructor(path string, ofields ...string) (*TrailDBConstructor, error) {
@@ -301,6 +312,23 @@ func NewTrail(db *TrailDB, trail_id uint64) (*Trail, error) {
 	return trail, err
 }
 
+func (trail *Trail) SetFilter(filter *EventFilter) error {
+	err := C.tdb_cursor_set_event_filter(trail.trail, filter.filter)
+	if err != 0 {
+		return errors.New(errToString(err))
+	}
+	/*
+	   we need to keep the filter alive for the lifetime of the cursor
+	*/
+	trail.filter = filter.filter
+	return nil
+}
+
+func (trail *Trail) UnsetFilter() {
+    C.tdb_cursor_unset_event_filter(trail.trail)
+    trail.filter = nil
+}
+
 func (trail *Trail) Close() {
 	C.tdb_cursor_free(trail.trail)
 }
@@ -437,4 +465,41 @@ func (evt *Event) ToStruct(data interface{}) interface{} {
 		v.Elem().Field(int(struct_field_ids[k])).SetString(value)
 	}
 	return v
+}
+
+func (db *TrailDB) NewEventFilter(query [][]FilterTerm) *EventFilter {
+	filter := EventFilter{filter: C.tdb_event_filter_new()}
+	for i, clause := range query {
+		if i > 0 {
+			err := C.tdb_event_filter_new_clause(filter.filter)
+			if err != 0 {
+				return nil
+			}
+		}
+		for _, term := range clause {
+			item := C.tdb_item(0)
+			field_id, err := db.GetField(term.Field)
+			if err == nil {
+				cs := C.CString(term.Value)
+				defer C.free(unsafe.Pointer(cs))
+				item = C.tdb_get_item(db.db,
+					C.tdb_field(field_id),
+					cs,
+					C.uint64_t(len(term.Value)))
+			}
+			isNegative := C.int(0)
+			if term.IsNegative {
+				isNegative = 1
+			}
+			ret := C.tdb_event_filter_add_term(filter.filter, item, isNegative)
+			if ret != 0 {
+				return nil
+			}
+		}
+	}
+	return &filter
+}
+
+func FreeEventFilter(filter *EventFilter) {
+	C.tdb_event_filter_free(filter.filter)
 }
