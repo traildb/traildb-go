@@ -20,6 +20,10 @@ import (
 import "unsafe"
 import "errors"
 
+/*
+NOTE: MULTI_CURSOR_BUFFER_SIZE must be less than (1 << 30)
+see MultiCursor.NextBatch for the reason
+*/
 var MULTI_CURSOR_BUFFER_SIZE = 1000
 
 type TrailDB struct {
@@ -563,6 +567,7 @@ func (mcursor *MultiCursor) NextBatch() []*Event {
                                           mcursor.mevent_buffer_ptr,
                                           C.uint64_t(MULTI_CURSOR_BUFFER_SIZE))
     num := uint64(cnum)
+    /* NOTE: MULTI_CURSOR_BUFFER_SIZE must be less than (1 << 30) */
     mevents := (*[1 << 30]C.tdb_multi_event)(mcursor.mevent_buffer_ptr)[:num:num]
 
     for i := uint64(0); i < num; i++ {
