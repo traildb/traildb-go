@@ -70,13 +70,6 @@ type EventFilter struct {
 	filter *C.struct_tdb_event_filter
 }
 
-/*
-type MultiEvent struct {
-	db *C.tdb
-    event *C.tdb_event
-    cursor_idx C.uint64_t
-}
-*/
 type MultiCursor struct {
 	mcursor           *C.tdb_multi_cursor
 	cursors           []*Trail
