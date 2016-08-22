@@ -69,6 +69,7 @@ type FilterTerm struct {
 type EventFilter struct {
 	filter *C.struct_tdb_event_filter
 }
+
 /*
 type MultiEvent struct {
 	db *C.tdb
@@ -77,10 +78,10 @@ type MultiEvent struct {
 }
 */
 type MultiCursor struct {
-    mcursor *C.tdb_multi_cursor
-    cursors []*Trail
-    mevent_buffer_ptr unsafe.Pointer
-    event_buffer []*Event
+	mcursor           *C.tdb_multi_cursor
+	cursors           []*Trail
+	mevent_buffer_ptr unsafe.Pointer
+	event_buffer      []*Event
 }
 
 func NewTrailDBConstructor(path string, ofields ...string) (*TrailDBConstructor, error) {
@@ -344,8 +345,8 @@ func (trail *Trail) SetFilter(filter *EventFilter) error {
 }
 
 func (trail *Trail) UnsetFilter() {
-    C.tdb_cursor_unset_event_filter(trail.trail)
-    trail.filter = nil
+	C.tdb_cursor_unset_event_filter(trail.trail)
+	trail.filter = nil
 }
 
 func (trail *Trail) Close() {
@@ -436,8 +437,8 @@ func (trail *Trail) NextEvent() *Event {
 	if event == nil {
 		return nil
 	} else {
-        return makeEvent(event, trail)
-    }
+		return makeEvent(event, trail)
+	}
 }
 
 func (evt *Event) Print() {
@@ -530,51 +531,51 @@ func FreeEventFilter(filter *EventFilter) {
 
 func NewMultiCursor(cursors []*Trail) (*MultiCursor, error) {
 	cursor_ptrs := make([]*C.tdb_cursor, len(cursors))
-    for i, cursor := range cursors {
-        cursor_ptrs[i] = cursor.trail
-    }
-    mcursor := C.tdb_multi_cursor_new(&cursor_ptrs[0], C.uint64_t(len(cursors)))
+	for i, cursor := range cursors {
+		cursor_ptrs[i] = cursor.trail
+	}
+	mcursor := C.tdb_multi_cursor_new(&cursor_ptrs[0], C.uint64_t(len(cursors)))
 	if mcursor == nil {
 		return nil, errors.New("Could not create a new multi cursor (out of memory?)")
 	}
-    /*
-    allocate an event buffer using malloc instead of using a Go slice.
-    Passing Go slices over CGo is SLOW
-    */
-    mevent_buffer_ptr := C.malloc(C.sizeof_tdb_multi_event *
-                                  C.size_t(MULTI_CURSOR_BUFFER_SIZE))
-    if mevent_buffer_ptr == nil {
-        return nil, errors.New("out of memory - malloc failed")
-    }
-    event_buffer := make([]*Event, MULTI_CURSOR_BUFFER_SIZE)
+	/*
+	   allocate an event buffer using malloc instead of using a Go slice.
+	   Passing Go slices over CGo is SLOW
+	*/
+	mevent_buffer_ptr := C.malloc(C.sizeof_tdb_multi_event *
+		C.size_t(MULTI_CURSOR_BUFFER_SIZE))
+	if mevent_buffer_ptr == nil {
+		return nil, errors.New("out of memory - malloc failed")
+	}
+	event_buffer := make([]*Event, MULTI_CURSOR_BUFFER_SIZE)
 	return &MultiCursor{mcursor: mcursor,
-                        cursors: cursors,
-                        mevent_buffer_ptr: mevent_buffer_ptr,
-                        event_buffer: event_buffer}, nil
+		cursors:           cursors,
+		mevent_buffer_ptr: mevent_buffer_ptr,
+		event_buffer:      event_buffer}, nil
 }
 
 func FreeMultiCursor(mcursor *MultiCursor) {
-    C.free(mcursor.mevent_buffer_ptr)
-    C.tdb_multi_cursor_free(mcursor.mcursor)
+	C.free(mcursor.mevent_buffer_ptr)
+	C.tdb_multi_cursor_free(mcursor.mcursor)
 }
 
 func (mcursor *MultiCursor) Reset() {
-    C.tdb_multi_cursor_reset(mcursor.mcursor)
+	C.tdb_multi_cursor_reset(mcursor.mcursor)
 }
 
 func (mcursor *MultiCursor) NextBatch() []*Event {
-    cnum := C.tdb_multi_cursor_next_batch(mcursor.mcursor,
-                                          mcursor.mevent_buffer_ptr,
-                                          C.uint64_t(MULTI_CURSOR_BUFFER_SIZE))
-    num := uint64(cnum)
-    /* NOTE: MULTI_CURSOR_BUFFER_SIZE must be less than (1 << 30) */
-    mevents := (*[1 << 30]C.tdb_multi_event)(mcursor.mevent_buffer_ptr)[:num:num]
+	cnum := C.tdb_multi_cursor_next_batch(mcursor.mcursor,
+		mcursor.mevent_buffer_ptr,
+		C.uint64_t(MULTI_CURSOR_BUFFER_SIZE))
+	num := uint64(cnum)
+	/* NOTE: MULTI_CURSOR_BUFFER_SIZE must be less than (1 << 30) */
+	mevents := (*[1 << 30]C.tdb_multi_event)(mcursor.mevent_buffer_ptr)[:num:num]
 
-    for i := uint64(0); i < num; i++ {
-        cursor_idx := mevents[i].cursor_idx
-        mcursor.event_buffer[i] = makeEvent(mevents[i].event,
-                                            mcursor.cursors[cursor_idx])
-    }
+	for i := uint64(0); i < num; i++ {
+		cursor_idx := mevents[i].cursor_idx
+		mcursor.event_buffer[i] = makeEvent(mevents[i].event,
+			mcursor.cursors[cursor_idx])
+	}
 
-    return mcursor.event_buffer[:num]
+	return mcursor.event_buffer[:num]
 }
