@@ -262,6 +262,10 @@ func Open(s string) (*TrailDB, error) {
 	}, nil
 }
 
+func (db *TrailDB) GetFieldNames() []string {
+    return db.fieldNames[1:]
+}
+
 func (db *TrailDB) SetFilter(filter *EventFilter) error {
 	var val C.tdb_opt_value
 	ptr := (*uintptr)(unsafe.Pointer(&val[0]))
