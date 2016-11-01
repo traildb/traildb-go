@@ -261,6 +261,18 @@ func Open(s string) (*TrailDB, error) {
 		fieldNameToId: fieldNameToId,
 	}, nil
 }
+
+func (db *TrailDB) SetFilter(filter *EventFilter) error {
+	var val C.tdb_opt_value
+	ptr := (*uintptr)(unsafe.Pointer(&val[0]))
+	*ptr = (uintptr)(unsafe.Pointer(filter.filter))
+	err := C.tdb_set_opt(db.db, C.tdb_opt_key(TDB_OPT_EVENT_FILTER), val)
+	if err != 0 {
+		return errors.New("Could not set event filter")
+	}
+	return nil
+}
+
 func (db *TrailDB) GetTrailID(cookie string) (uint64, error) {
 	var trail_id C.uint64_t
 	cookiebin, err := rawCookie(cookie)
