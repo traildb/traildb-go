@@ -174,23 +174,11 @@ const (
 	TDB_OPT_CONS_OUTPUT_FORMAT       = 1001
 )
 
-func make_tdb_opt_value(cbytes []byte) (result *C.tdb_opt_value) {
-	buf := bytes.NewBuffer(cbytes[:])
-	var ptr uint64
-	if err := binary.Read(buf, binary.BigEndian, &ptr); err == nil {
-		uptr := uintptr(ptr)
-		return (*C.tdb_opt_value)(unsafe.Pointer(uptr))
-	}
-	return nil
-}
-
 func (cons *TrailDBConstructor) SetOpt(key int, value int) error {
-	var buf []byte
+	value64 := uint64(value)
+	opt_value := (*C.tdb_opt_value)(unsafe.Pointer(&value64))
 
-	binary.BigEndian.PutUint64(buf, uint64(value))
-	opt_value := *make_tdb_opt_value(buf)
-
-	err := C.tdb_cons_set_opt(cons.cons, C.tdb_opt_key(key), opt_value)
+	err := C.tdb_cons_set_opt(cons.cons, C.tdb_opt_key(key), *opt_value)
 	if err != 0 {
 		return errors.New(errToString(err))
 	}
@@ -263,7 +251,7 @@ func Open(s string) (*TrailDB, error) {
 }
 
 func (db *TrailDB) GetFieldNames() []string {
-    return db.fieldNames[1:]
+	return db.fieldNames[1:]
 }
 
 func (db *TrailDB) SetFilter(filter *EventFilter) error {
