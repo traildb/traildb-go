@@ -9,8 +9,6 @@ package tdb
 */
 import "C"
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"os"
