@@ -498,7 +498,7 @@ func (evt *Event) ToStruct(data interface{}) interface{} {
 		value := C.GoStringN(itemValue, C.int(vlength))
 		v.Elem().Field(int(struct_field_ids[k])).SetString(value)
 	}
-	return v
+	return v.Interface()
 }
 
 func (db *TrailDB) NewEventFilter(query [][]FilterTerm) *EventFilter {

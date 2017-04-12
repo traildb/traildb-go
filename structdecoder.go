@@ -22,8 +22,8 @@ type TrailDecoder struct {
 }
 
 func (this *TrailDecoder) Prepare(t reflect.Type) {
-	res.struct_field_ids = make([]int, 0)
-	res.tdb_field_ids = make([]uint64, 0)
+	this.struct_field_ids = make([]int, 0)
+	this.tdb_field_ids = make([]uint64, 0)
 
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
