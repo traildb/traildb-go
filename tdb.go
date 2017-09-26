@@ -195,6 +195,7 @@ func (cons *TrailDBConstructor) GetOpt(key int, value int) (int, error) {
 }
 
 func (cons *TrailDBConstructor) Close() {
+	defer C.free(cons.valuePtr)
 	C.tdb_cons_close(cons.cons)
 }
 
