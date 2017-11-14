@@ -142,7 +142,7 @@ func (cons *TrailDBConstructor) Add(cookie string, timestamp int64, values []str
 		*element = cvalues
 	}
 	valueLengthsPtr := (*C.uint64_t)(unsafe.Pointer(&cons.valueLengths[0]))
-	err1 := C.tdb_cons_add(cons.cons, cookiebin, C.uint64_t(timestamp), cons.valuePtr, valueLengthsPtr)
+	err1 := C.tdb_cons_add(cons.cons, cookiebin, C.uint64_t(timestamp), (**C.char)(cons.valuePtr), valueLengthsPtr)
 	if err1 != 0 {
 		return errors.New(errToString(err1))
 	}
@@ -561,7 +561,7 @@ func (mcursor *MultiCursor) Reset() {
 
 func (mcursor *MultiCursor) NextBatch() []*Event {
 	cnum := C.tdb_multi_cursor_next_batch(mcursor.mcursor,
-		mcursor.mevent_buffer_ptr,
+		(*C.struct___3)(mcursor.mevent_buffer_ptr),
 		C.uint64_t(MULTI_CURSOR_BUFFER_SIZE))
 	num := uint64(cnum)
 	/* NOTE: MULTI_CURSOR_BUFFER_SIZE must be less than (1 << 30) */
