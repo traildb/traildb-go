@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 )
 
 import "unsafe"
@@ -214,6 +215,10 @@ func exists(path string) (bool, error) {
 }
 
 func Open(s string) (*TrailDB, error) {
+	if !strings.HasSuffix(s, ".tdb") {
+		s = s + ".tdb"
+	}
+
 	ok, er := exists(s)
 	if er != nil {
 		return nil, er
