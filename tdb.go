@@ -561,7 +561,7 @@ func (mcursor *MultiCursor) Reset() {
 
 func (mcursor *MultiCursor) NextBatch() []*Event {
 	cnum := C.tdb_multi_cursor_next_batch(mcursor.mcursor,
-		(*C.struct___3)(mcursor.mevent_buffer_ptr),
+		(*C.tdb_multi_event)(mcursor.mevent_buffer_ptr),
 		C.uint64_t(MULTI_CURSOR_BUFFER_SIZE))
 	num := uint64(cnum)
 	/* NOTE: MULTI_CURSOR_BUFFER_SIZE must be less than (1 << 30) */
