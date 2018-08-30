@@ -3,21 +3,23 @@ package tdb
 /*
 #cgo pkg-config: traildb
 
+#cgo linux LDFLAGS: -lJudy -larchive
+
 #include <traildb.h>
 #include <stdlib.h>
 
 */
 import "C"
+
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
+	"unsafe"
 	"strings"
 )
-
-import "unsafe"
-import "errors"
 
 /*
 NOTE: MULTI_CURSOR_BUFFER_SIZE must be less than (1 << 30)
