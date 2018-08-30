@@ -18,6 +18,7 @@ import (
 	"os"
 	"reflect"
 	"unsafe"
+	"strings"
 )
 
 /*
@@ -144,7 +145,7 @@ func (cons *TrailDBConstructor) Add(cookie string, timestamp int64, values []str
 		*element = cvalues
 	}
 	valueLengthsPtr := (*C.uint64_t)(unsafe.Pointer(&cons.valueLengths[0]))
-	err1 := C.tdb_cons_add(cons.cons, cookiebin, C.uint64_t(timestamp), cons.valuePtr, valueLengthsPtr)
+	err1 := C.tdb_cons_add(cons.cons, cookiebin, C.uint64_t(timestamp), (**C.char)(cons.valuePtr), valueLengthsPtr)
 	if err1 != 0 {
 		return errors.New(errToString(err1))
 	}
@@ -172,6 +173,7 @@ const (
 	TDB_OPT_EVENT_FILTER             = 101
 	TDB_OPT_CURSOR_EVENT_BUFFER_SIZE = 102
 	TDB_OPT_CONS_OUTPUT_FORMAT       = 1001
+	TDB_OPT_CONS_NO_BIGRAMS          = 1002
 )
 
 func (cons *TrailDBConstructor) SetOpt(key int, value int) error {
@@ -215,6 +217,10 @@ func exists(path string) (bool, error) {
 }
 
 func Open(s string) (*TrailDB, error) {
+	if !strings.HasSuffix(s, ".tdb") {
+		s = s + ".tdb"
+	}
+
 	ok, er := exists(s)
 	if er != nil {
 		return nil, er
@@ -562,7 +568,7 @@ func (mcursor *MultiCursor) Reset() {
 
 func (mcursor *MultiCursor) NextBatch() []*Event {
 	cnum := C.tdb_multi_cursor_next_batch(mcursor.mcursor,
-		mcursor.mevent_buffer_ptr,
+		(*C.tdb_multi_event)(mcursor.mevent_buffer_ptr),
 		C.uint64_t(MULTI_CURSOR_BUFFER_SIZE))
 	num := uint64(cnum)
 	/* NOTE: MULTI_CURSOR_BUFFER_SIZE must be less than (1 << 30) */
