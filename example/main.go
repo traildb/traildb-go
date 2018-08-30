@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/SemanticSugar/traildb-go"
+	"github.com/traildb/traildb-go"
 )
 
 type Ev struct {
