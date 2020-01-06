@@ -445,8 +445,13 @@ func (trail *Trail) NextEvent() *Event {
 	}
 }
 
+func (trail *Trail) GetTrailLength() int {
+    tlength := C.tdb_get_trail_length(trail.trail)
+    return int(tlength)
+}
+
 func (evt *Event) Print() {
-	fmt.Printf("%s: %s\n", evt.Timestamp, evt.ToMap())
+	fmt.Printf("%d: %s\n", evt.Timestamp, evt.ToMap())
 }
 
 func (evt *Event) Get(index int) string {

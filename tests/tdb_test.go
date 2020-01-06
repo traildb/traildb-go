@@ -126,6 +126,10 @@ func TestApi(t *testing.T) {
 	ok(t, err)
 	equals(t, uint64(0), id)
 
+        trail := GetTrailAt(id, t, db)
+        trailLength := trail.GetTrailLength()
+        equals(t, trailLength, 4)
+
 	trails, err := db.FindTrails(map[string]string{"field1": "a"})
 	ok(t, err)
 	equals(t, len(trails), 2)
